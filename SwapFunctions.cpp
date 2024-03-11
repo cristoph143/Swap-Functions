@@ -1,98 +1,113 @@
-﻿// SwapFunctions.cpp : Defines the entry point for the application.
-//
-
-#include "SwapFunctions.h"
-#include <cstring>
-#include <iostream>
+﻿#include <iostream>
 #include <limits>
 #include <type_traits>
 
+#define INPUT_ERROR_MESSAGE "Invalid input. Please enter a valid value.\n"
+#define CHAR_INPUT_ERROR_MESSAGE "Invalid input. Please enter 'y' or 'n'.\n"
+#define IS_Y_OR_N(x) (tolower(x) == 'y' || tolower(x) == 'n')
+
+
 using namespace std;
 
-
 /**
- * Prompts the user to input a value of a specified type and handles invalid
- * input.
+ * Prompts the user to input a value of a specified type and handles invalid input.
  *
  * @param message The message displayed to prompt the user for input.
  * @param var Reference to the variable where the input value will be stored.
  */
-template <typename T> 
-void getInput(const char* message, T& var) {
-    while (true) {
-        cout << message;
-        if ((cin >> var)) {
-            break;
-        }
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        cerr << "Invalid input. Please enter a valid value.\n";
-    }
+template <typename T>
+void getInput(const string& message, T& var) {
+	while (true) {
+		cout << message;
+		if (!(cin >> var)) {
+			cin.clear(); // Clear error flag on failed extraction.
+			cerr << INPUT_ERROR_MESSAGE;
+		}
+		else if constexpr (is_same<T, char>::value) {
+			var = tolower(var);
+			if (IS_Y_OR_N(var)) return; // Use macro for 'y' or 'n' check.
+			cerr << CHAR_INPUT_ERROR_MESSAGE;
+		}
+		else {
+			return; // Exit the function for valid non-char input.
+		}
+		cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Discard invalid input.
+	}
+}
+
+
+/**
+ * Swaps two values of any type.
+ *
+ * @param a Reference to the first value.
+ * @param b Reference to the second value.
+ */
+void swapValues(void* a, void* b) {
+
+	// Check if either a or b is a null pointer. If so, print an error and exit the function.
+	// This check is conceptually incorrect for non-pointer T, as the dereference is invalid.
+	if (a == nullptr || b == nullptr) {
+		cerr << "Error: Cannot swap using null pointers." << endl;
+		return;
+	}
+
+	// Create a temporary object to hold the value of a. Use std::move for efficiency,
+	// enabling move semantics when possible. If T isn't a class supporting move semantics,
+	// this will result in a copy operation.
+	void* temp = move(a);
+
+	// Assign the value of b to a, using std::move to enable move semantics.
+	a = move(b);
+
+	// Assign the value of temp (originally a) to b, completing the swap.
+	b = move(temp);
 }
 
 /**
- * Swaps the contents of two memory locations of a given size.
+ * Prints the integer value.
  *
- * @param num1Ptr Pointer to the first memory location.
- * @param num2Ptr Pointer to the second memory location.
- * @param size Size of the memory to be swapped.
+ * @param value The integer value to be printed.
  */
-void swap(void* num1Ptr, void* num2Ptr, size_t size) {
-    unsigned char* buffer = static_cast<unsigned char*>(malloc(size));
-    if (buffer == nullptr) {
-        std::cerr << "Memory allocation failed.\n";
-        exit(EXIT_FAILURE);
-    }
-    memcpy(buffer, num1Ptr, size);
-    memcpy(num1Ptr, num2Ptr, size);
-    memcpy(num2Ptr, buffer, size);
-    free(buffer);
+void printInt(const int& value) {
+	cout << value;
 }
 
 /**
- * Prints the integer value pointed to by a const void pointer.
- *
- * @param value Pointer to the integer value to be printed.
- */
-void printInt(const void* value) { cout << *(const int*)value; }
-
-/**
- * Displays the values pointed to by two const void pointers, along with a given
- * message, using a provided printing function.
+ * Displays the values along with a given message.
  *
  * @param message The message to be displayed before the values.
- * @param num1Ptr Pointer to the first value.
- * @param num2Ptr Pointer to the second value.
- * @param printFunc Pointer to a function used to print the values.
+ * @param a First value.
+ * @param b Second value.
+ * @param printFunc Function to print the values.
  */
-void displayValues(const char* message, const void* num1Ptr,
-    const void* num2Ptr, void (*printFunc)(const void*)) {
-    cout << message << ": ";
-    printFunc(num1Ptr);
-    cout << ", ";
-    printFunc(num2Ptr);
-    cout << endl;
+template <typename T>
+void displayValues(const string& message, const T& a, const T& b, void (*printFunc)(const T&)) {
+	cout << message << ": ";
+	printFunc(a);
+	cout << ", ";
+	printFunc(b);
+	cout << endl;
 }
 
 /**
- * The main function of the program that repeatedly prompts the user to input
- * two integers, displays them, swaps them, and then asks if the user wants to
- * repeat the process.
+ * Main function: Executes a loop that swaps two integers input by the user.
  *
- * @return Integer (0 for successful execution).
+ * @return Integer indicating exit status.
  */
 int main() {
-    char repeat = 'y';
-    while (tolower(repeat) == 'y') {
-        int num1, num2;
-        getInput("Enter the value for num1 (int): ", num1);
-        getInput("Enter the value for num2 (int): ", num2);
-        displayValues("Before swap (integers)", &num1, &num2, printInt);
-        swap(&num1, &num2, sizeof(num1));
-        displayValues("After swap (integers)", &num1, &num2, printInt);
-        cout << "Do you want to repeat the program? (y/n): ";
-        cin >> repeat;
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    }
-    return 0;
+	int num1, num2;
+	char repeat = 'y';
+
+	while (tolower(repeat) == 'y') {
+		getInput("Enter the value for num1 (int): ", num1);
+		getInput("Enter the value for num2 (int): ", num2);
+
+		displayValues("Before swap (integers)", num1, num2, printInt);
+		swapValues(&num1, &num2);
+		displayValues("After swap (integers)", num1, num2, printInt);
+
+		getInput("Do you want to repeat the program? (y/n): ", repeat);
+	}
+
+	return 0;
 }
